@@ -1,0 +1,83 @@
+{
+  "name": "ureader",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A fast PDF reader for Windows",
+  "author": "UReader",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "electron:dev": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && node scripts/dev.cjs",
+    "electron:build": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && vite build && electron-builder --config.directories.output=d:/ureader-build && node -e \"const fs=require('fs');const p='d:/ureader-build';const files=fs.readdirSync(p).filter(f=>f.endsWith('.exe'));files.forEach(f=>fs.copyFileSync(p+'/'+f,'d:/UReader/'+f))\"",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tiptap/extension-image": "^3.26.0",
+    "@tiptap/extension-link": "^3.26.0",
+    "@tiptap/extension-placeholder": "^3.26.0",
+    "@tiptap/extension-table": "^3.26.0",
+    "@tiptap/extension-table-cell": "^3.26.0",
+    "@tiptap/extension-table-header": "^3.26.0",
+    "@tiptap/extension-table-row": "^3.26.0",
+    "@tiptap/extension-task-item": "^3.26.0",
+    "@tiptap/extension-task-list": "^3.26.0",
+    "@tiptap/extension-underline": "^3.26.0",
+    "@tiptap/react": "^3.26.0",
+    "@tiptap/starter-kit": "^3.26.0",
+    "highlight.js": "^11.11.1",
+    "pdfjs-dist": "^6.0.227",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.ureader.app",
+    "productName": "UReader",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UReader",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
