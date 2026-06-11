@@ -1,15 +1,15 @@
 {
-  "name": "ureader",
+  "name": "pisces",
   "private": true,
   "version": "1.0.0",
-  "description": "A fast PDF reader for Windows",
-  "author": "UReader",
+  "description": "A fast AI-powered PDF reader for Windows",
+  "author": "Pisces",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
     "electron:dev": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && node scripts/dev.cjs",
-    "electron:build": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && vite build && electron-builder --config.directories.output=d:/ureader-build && node -e \"const fs=require('fs');const p='d:/ureader-build';const files=fs.readdirSync(p).filter(f=>f.endsWith('.exe'));files.forEach(f=>fs.copyFileSync(p+'/'+f,'d:/UReader/'+f))\"",
+    "electron:build": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && vite build && electron-builder --config.directories.output=d:/pisces-build && node -e \"const fs=require('fs');const p='d:/pisces-build';const files=fs.readdirSync(p).filter(f=>f.endsWith('.exe'));files.forEach(f=>fs.copyFileSync(p+'/'+f,'d:/UReader/'+f))\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -57,8 +57,8 @@
     "wait-on": "^9.0.10"
   },
   "build": {
-    "appId": "com.ureader.app",
-    "productName": "UReader",
+    "appId": "com.pisces.app",
+    "productName": "Pisces",
     "directories": {
       "output": "release"
     },
@@ -76,7 +76,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "UReader",
+      "shortcutName": "Pisces",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     }

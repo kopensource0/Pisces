@@ -264,7 +264,7 @@ export function PDFViewer({
                 <polyline points="10 9 9 9 8 9" />
               </svg>
             </div>
-            <h2>Welcome to UReader</h2>
+            <h2>Welcome to Pisces</h2>
             <p>Open a PDF file to get started</p>
             <p className="placeholder-hint">Use File &gt; Open, Ctrl+O, or drag &amp; drop a PDF file</p>
           </div>

@@ -74,8 +74,8 @@ export function useLLMChat() {
     }
 
     const systemPrompt = context
-      ? `You are an AI reading assistant for UReader, a PDF reading application. You can answer questions about the document AND use tools to highlight, annotate, bookmark, and navigate the PDF.\n\n${TOOL_DEFINITIONS}\n\nPDF Content:\n${context}`
-      : `You are a helpful AI assistant for UReader, a PDF reading application.\n\n${TOOL_DEFINITIONS}`;
+      ? `You are an AI reading assistant for Pisces, a PDF reading application. You can answer questions about the document AND use tools to highlight, annotate, bookmark, and navigate the PDF.\n\n${TOOL_DEFINITIONS}\n\nPDF Content:\n${context}`
+      : `You are a helpful AI assistant for Pisces, a PDF reading application.\n\n${TOOL_DEFINITIONS}`;
 
     const apiMessages = [
       { role: 'system', content: systemPrompt },

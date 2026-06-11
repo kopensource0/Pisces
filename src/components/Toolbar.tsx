@@ -83,7 +83,7 @@ export function Toolbar({
   return (
     <div className="toolbar-wrapper">
       <div className="toolbar">
-        <div className="toolbar-title">UReader</div>
+        <div className="toolbar-title">Pisces</div>
         <div className="toolbar-separator" />
 
         <div className="toolbar-group">

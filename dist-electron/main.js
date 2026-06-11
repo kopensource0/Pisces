@@ -63,7 +63,7 @@ function createWindow() {
         height: 900,
         minWidth: 800,
         minHeight: 600,
-        title: 'UReader',
+        title: 'Pisces',
         backgroundColor: '#1e1e1e',
         titleBarStyle: 'hidden',
         titleBarOverlay: {
