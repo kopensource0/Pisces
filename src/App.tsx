@@ -95,6 +95,23 @@ function App() {
   // Bookmarks
   const { bookmarks, toggleBookmark, removeBookmark, renameBookmark, isBookmarked } = useBookmarks(fileName);
 
+  // Debounced PDF annotation embedding
+  const embedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!window.electronAPI || !fileName) return;
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (!activeTab?.filePath) return;
+
+    if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+    embedTimerRef.current = setTimeout(() => {
+      window.electronAPI.embedAnnotations(activeTab.filePath, annotations.annotations, bookmarks)
+        .then(ok => console.log('[Embed] Annotations embedded:', ok))
+        .catch(err => console.error('[Embed] Failed:', err));
+    }, 2000); // 2s debounce
+
+    return () => { if (embedTimerRef.current) clearTimeout(embedTimerRef.current); };
+  }, [annotations.annotations, bookmarks, fileName, tabs, activeTabId]);
+
   // LLM Config
   const llmConfig = useLLMConfig();
 

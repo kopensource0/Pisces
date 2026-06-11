@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const pdfAnnotator_1 = require("./pdfAnnotator");
 let mainWindow = null;
 // Helper to get app data directories
 function getNotesDir() {
@@ -299,6 +300,39 @@ electron_1.ipcMain.handle('bookmarks:save', async (_event, pdfName, bookmarks) =
     }
     catch (err) {
         console.error('Failed to save bookmarks:', err);
+        return false;
+    }
+});
+// ===== IPC: Embed annotations into PDF =====
+electron_1.ipcMain.handle('pdf:embedAnnotations', async (_event, pdfFilePath, annotations, bookmarks) => {
+    try {
+        if (!fs.existsSync(pdfFilePath)) {
+            console.error('[Embed] PDF file not found:', pdfFilePath);
+            return false;
+        }
+        // Create a backup before modifying
+        const backupPath = pdfFilePath + '.bak';
+        fs.copyFileSync(pdfFilePath, backupPath);
+        const success = await (0, pdfAnnotator_1.embedAnnotations)(pdfFilePath, annotations, bookmarks);
+        if (success) {
+            // Remove backup on success
+            try {
+                fs.unlinkSync(backupPath);
+            }
+            catch { /* ignore */ }
+        }
+        else {
+            // Restore from backup on failure
+            fs.copyFileSync(backupPath, pdfFilePath);
+            try {
+                fs.unlinkSync(backupPath);
+            }
+            catch { /* ignore */ }
+        }
+        return success;
+    }
+    catch (err) {
+        console.error('[Embed] Failed:', err);
         return false;
     }
 });

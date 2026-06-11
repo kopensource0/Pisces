@@ -35,4 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Bookmarks
   readBookmarks: (pdfName: string) => ipcRenderer.invoke('bookmarks:read', pdfName) as Promise<unknown[]>,
   saveBookmarks: (pdfName: string, bookmarks: unknown[]) => ipcRenderer.invoke('bookmarks:save', pdfName, bookmarks) as Promise<boolean>,
+
+  // PDF embedding — write annotations/bookmarks directly into the PDF file
+  embedAnnotations: (pdfFilePath: string, annotations: unknown[], bookmarks: unknown[]) =>
+    ipcRenderer.invoke('pdf:embedAnnotations', pdfFilePath, annotations, bookmarks) as Promise<boolean>,
 });

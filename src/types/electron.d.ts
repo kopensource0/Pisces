@@ -25,6 +25,9 @@ export interface ElectronAPI {
   // Bookmarks
   readBookmarks: (pdfName: string) => Promise<unknown[]>;
   saveBookmarks: (pdfName: string, bookmarks: unknown[]) => Promise<boolean>;
+
+  // PDF embedding
+  embedAnnotations: (pdfFilePath: string, annotations: unknown[], bookmarks: unknown[]) => Promise<boolean>;
 }
 
 declare global {

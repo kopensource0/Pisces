@@ -1,0 +1,267 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.embedAnnotations = embedAnnotations;
+const pdf_lib_1 = require("pdf-lib");
+const fs = __importStar(require("fs"));
+/**
+ * Parse rgba string to { r, g, b } in 0-1 range
+ */
+function parseColor(color) {
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        return {
+            r: parseInt(match[1]) / 255,
+            g: parseInt(match[2]) / 255,
+            b: parseInt(match[3]) / 255,
+        };
+    }
+    return { r: 1, g: 0.92, b: 0.23 }; // default yellow
+}
+/**
+ * Convert UReader coordinates (0-1, origin top-left) to PDF coordinates (points, origin bottom-left).
+ */
+function toPdfRect(rect, pageHeight) {
+    const { width: pageWidth } = { width: 0 }; // we'll use actual page dimensions
+    return {
+        x1: rect.x,
+        y1: 1 - rect.y - rect.height, // flip Y
+        x2: rect.x + rect.width,
+        y2: 1 - rect.y,
+    };
+}
+/**
+ * Embed annotations and bookmarks into a PDF file.
+ * Reads the original PDF, adds annotations, and writes back.
+ */
+async function embedAnnotations(pdfFilePath, annotations, bookmarks) {
+    try {
+        // Read the original PDF
+        const pdfBytes = fs.readFileSync(pdfFilePath);
+        const pdfDoc = await pdf_lib_1.PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+        const pages = pdfDoc.getPages();
+        // Remove existing UReader annotations (by our custom marker) to avoid duplicates
+        for (const page of pages) {
+            removeUReaderAnnotations(page);
+        }
+        // Add highlight/underline annotations
+        for (const ann of annotations) {
+            if (ann.type === 'textbox') {
+                addFreeTextAnnotation(pdfDoc, pages, ann);
+            }
+            else {
+                addMarkupAnnotation(pdfDoc, pages, ann);
+            }
+        }
+        // Add bookmarks as outline entries
+        if (bookmarks && bookmarks.length > 0) {
+            addBookmarksToOutline(pdfDoc, pages, bookmarks);
+        }
+        // Save the modified PDF
+        const modifiedBytes = await pdfDoc.save();
+        fs.writeFileSync(pdfFilePath, modifiedBytes);
+        return true;
+    }
+    catch (err) {
+        console.error('[PDF Annotator] Failed to embed annotations:', err);
+        return false;
+    }
+}
+function addMarkupAnnotation(pdfDoc, pages, ann) {
+    const pageIndex = ann.page - 1;
+    if (pageIndex < 0 || pageIndex >= pages.length)
+        return;
+    const page = pages[pageIndex];
+    const { width: pageW, height: pageH } = page.getSize();
+    const color = parseColor(ann.color);
+    const subtype = ann.type === 'highlight' ? 'Highlight' : 'Underline';
+    const rects = ann.rects && ann.rects.length > 0
+        ? ann.rects
+        : [{ x: ann.x, y: ann.y, width: ann.width, height: ann.height }];
+    // Build QuadPoints array (4 points per rect: top-left, top-right, bottom-left, bottom-right)
+    const quadPoints = [];
+    for (const rect of rects) {
+        const x1 = rect.x * pageW;
+        const x2 = (rect.x + rect.width) * pageW;
+        const y1 = (1 - rect.y) * pageH; // top in PDF coords
+        const y2 = (1 - rect.y - rect.height) * pageH; // bottom in PDF coords
+        // QuadPoints order: top-left, top-right, bottom-left, bottom-right
+        quadPoints.push(x1, y1, x2, y1, x1, y2, x2, y2);
+    }
+    // Bounding box of all rects
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const rect of rects) {
+        const x1 = rect.x * pageW;
+        const x2 = (rect.x + rect.width) * pageW;
+        const y1 = (1 - rect.y) * pageH;
+        const y2 = (1 - rect.y - rect.height) * pageH;
+        minX = Math.min(minX, x1);
+        maxX = Math.max(maxX, x2);
+        minY = Math.min(minY, y2);
+        maxY = Math.max(maxY, y1);
+    }
+    // Create the annotation dictionary
+    const context = pdfDoc.context;
+    const annotDict = context.obj({
+        Type: 'Annot',
+        Subtype: subtype,
+        Rect: [minX, minY, maxX, maxY],
+        C: [color.r, color.g, color.b],
+        CA: ann.type === 'highlight' ? 0.45 : 0.9, // opacity
+        F: pdf_lib_1.AnnotationFlags.Print,
+        QuadPoints: quadPoints,
+        Contents: pdf_lib_1.PDFHexString.fromText(ann.comment || ''),
+        T: pdf_lib_1.PDFHexString.fromText('UReader'),
+        CreationDate: pdf_lib_1.PDFString.of(`D:${new Date(ann.createdAt).toISOString().replace(/[-:]/g, '').split('.')[0]}`),
+    });
+    // Mark as UReader annotation for future cleanup
+    annotDict.set(pdf_lib_1.PDFName.of('NM'), pdf_lib_1.PDFString.of(`ureader-${ann.id}`));
+    const annotRef = context.register(annotDict);
+    page.node.addAnnot(annotRef);
+}
+function addFreeTextAnnotation(pdfDoc, pages, ann) {
+    const pageIndex = ann.page - 1;
+    if (pageIndex < 0 || pageIndex >= pages.length)
+        return;
+    const page = pages[pageIndex];
+    const { width: pageW, height: pageH } = page.getSize();
+    const color = parseColor(ann.color);
+    const x1 = ann.x * pageW;
+    const y1 = (1 - ann.y - ann.height) * pageH;
+    const x2 = (ann.x + ann.width) * pageW;
+    const y2 = (1 - ann.y) * pageH;
+    const fontSizePt = (ann.fontSize || 0.018) * pageH;
+    const context = pdfDoc.context;
+    const annotDict = context.obj({
+        Type: 'Annot',
+        Subtype: 'FreeText',
+        Rect: [x1, y1, x2, y2],
+        C: [color.r, color.g, color.b],
+        F: pdf_lib_1.AnnotationFlags.Print,
+        Contents: pdf_lib_1.PDFHexString.fromText(ann.text || ''),
+        T: pdf_lib_1.PDFHexString.fromText('UReader'),
+        DA: pdf_lib_1.PDFString.of(`/Helv ${Math.round(fontSizePt)} Tf 0 0 0 rg`),
+        NM: pdf_lib_1.PDFString.of(`ureader-${ann.id}`),
+    });
+    const annotRef = context.register(annotDict);
+    page.node.addAnnot(annotRef);
+}
+/**
+ * Remove previously embedded UReader annotations (identified by NM field starting with 'ureader-').
+ */
+function removeUReaderAnnotations(page) {
+    const node = page.node;
+    const context = node.context;
+    const annots = node.lookup(pdf_lib_1.PDFName.of('Annots'));
+    if (annots instanceof pdf_lib_1.PDFArray) {
+        const toRemove = [];
+        for (let i = 0; i < annots.size(); i++) {
+            const ref = annots.get(i);
+            const annot = ref instanceof pdf_lib_1.PDFDict ? ref : context.lookup(ref);
+            if (annot instanceof pdf_lib_1.PDFDict) {
+                const nm = annot.lookup(pdf_lib_1.PDFName.of('NM'));
+                if (nm instanceof pdf_lib_1.PDFString || nm instanceof pdf_lib_1.PDFHexString) {
+                    const nmStr = nm.decodeText();
+                    if (nmStr.startsWith('ureader-')) {
+                        toRemove.push(i);
+                    }
+                }
+            }
+        }
+        // Remove in reverse order to preserve indices
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+            annots.remove(toRemove[i]);
+        }
+    }
+}
+/**
+ * Add bookmarks to the PDF outline (Table of Contents).
+ */
+function addBookmarksToOutline(pdfDoc, pages, bookmarks) {
+    if (bookmarks.length === 0)
+        return;
+    const context = pdfDoc.context;
+    const root = pdfDoc.catalog;
+    // Create outline dictionary
+    const outlineRef = context.nextRef();
+    const firstRef = context.nextRef();
+    // Build outline items
+    const itemRefs = [];
+    for (let i = 0; i < bookmarks.length; i++) {
+        const itemRef = context.nextRef();
+        itemRefs.push({
+            ref: itemRef,
+            parent: outlineRef,
+            prev: i > 0 ? itemRefs[i - 1].ref : undefined,
+            next: undefined,
+        });
+        if (i > 0) {
+            itemRefs[i - 1].next = itemRef;
+        }
+    }
+    // Create outline items
+    for (let i = 0; i < bookmarks.length; i++) {
+        const bm = bookmarks[i];
+        const pageIndex = bm.page - 1;
+        if (pageIndex < 0 || pageIndex >= pages.length)
+            continue;
+        const page = pages[pageIndex];
+        const pageRef = page.ref;
+        const item = {
+            Title: pdf_lib_1.PDFHexString.fromText(bm.label || `Page ${bm.page}`),
+            Parent: outlineRef,
+            Dest: [pageRef, pdf_lib_1.PDFName.of('Fit')],
+        };
+        if (itemRefs[i].prev)
+            item.Prev = itemRefs[i].prev;
+        if (itemRefs[i].next)
+            item.Next = itemRefs[i].next;
+        context.assign(itemRefs[i].ref, context.obj(item));
+    }
+    // Create first outline dict
+    const firstItem = itemRefs[0];
+    if (firstItem) {
+        context.assign(firstRef, context.obj({})); // placeholder, already set above
+        const outline = {
+            Type: 'Outlines',
+            First: itemRefs[0].ref,
+            Last: itemRefs[itemRefs.length - 1].ref,
+            Count: bookmarks.length,
+        };
+        context.assign(outlineRef, context.obj(outline));
+        // Set outline on catalog
+        root.set(pdf_lib_1.PDFName.of('Outlines'), outlineRef);
+    }
+}

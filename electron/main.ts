@@ -1,6 +1,7 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { embedAnnotations } from './pdfAnnotator';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -269,6 +270,39 @@ ipcMain.handle('bookmarks:save', async (_event, pdfName: string, bookmarks: unkn
     return true;
   } catch (err) {
     console.error('Failed to save bookmarks:', err);
+    return false;
+  }
+});
+
+// ===== IPC: Embed annotations into PDF =====
+ipcMain.handle('pdf:embedAnnotations', async (_event, pdfFilePath: string, annotations: unknown[], bookmarks: unknown[]) => {
+  try {
+    if (!fs.existsSync(pdfFilePath)) {
+      console.error('[Embed] PDF file not found:', pdfFilePath);
+      return false;
+    }
+    // Create a backup before modifying
+    const backupPath = pdfFilePath + '.bak';
+    fs.copyFileSync(pdfFilePath, backupPath);
+
+    const success = await embedAnnotations(
+      pdfFilePath,
+      annotations as any[],
+      bookmarks as any[] | undefined
+    );
+
+    if (success) {
+      // Remove backup on success
+      try { fs.unlinkSync(backupPath); } catch { /* ignore */ }
+    } else {
+      // Restore from backup on failure
+      fs.copyFileSync(backupPath, pdfFilePath);
+      try { fs.unlinkSync(backupPath); } catch { /* ignore */ }
+    }
+
+    return success;
+  } catch (err) {
+    console.error('[Embed] Failed:', err);
     return false;
   }
 });

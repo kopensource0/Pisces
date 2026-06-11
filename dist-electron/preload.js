@@ -31,4 +31,6 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     // Bookmarks
     readBookmarks: (pdfName) => electron_1.ipcRenderer.invoke('bookmarks:read', pdfName),
     saveBookmarks: (pdfName, bookmarks) => electron_1.ipcRenderer.invoke('bookmarks:save', pdfName, bookmarks),
+    // PDF embedding — write annotations/bookmarks directly into the PDF file
+    embedAnnotations: (pdfFilePath, annotations, bookmarks) => electron_1.ipcRenderer.invoke('pdf:embedAnnotations', pdfFilePath, annotations, bookmarks),
 });
