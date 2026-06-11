@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usePDFDocument } from './hooks/usePDFDocument';
 import { useNotes } from './hooks/useNotes';
 import { useLLMConfig } from './hooks/useLLMConfig';
 import { useLLMChat } from './hooks/useLLMChat';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useBookmarks } from './hooks/useBookmarks';
+import type { ToolExecutorContext } from './services/toolExecutor';
 import { PDFViewer } from './components/PDFViewer';
 
 // Resize limits
@@ -99,6 +100,24 @@ function App() {
 
   // LLM Chat
   const chat = useLLMChat();
+
+  // Set up tool executor context for LLM chat
+  useEffect(() => {
+    const ctx: ToolExecutorContext = {
+      pdfDocument,
+      addAnnotation: annotations.addAnnotation,
+      updateAnnotationComment: annotations.updateAnnotationComment,
+      addBookmark: (page: number, label?: string) => {
+        // Only add if not already bookmarked (toggleBookmark would remove it)
+        if (!isBookmarked(page)) {
+          toggleBookmark(page, label);
+        }
+      },
+      renameBookmark,
+      goToPage,
+    };
+    chat.setToolContext(ctx);
+  }, [pdfDocument, annotations.addAnnotation, annotations.updateAnnotationComment, isBookmarked, toggleBookmark, renameBookmark, goToPage, chat.setToolContext]);
 
   // Disable text tool when switching away
   const toggleTextTool = useCallback(() => {

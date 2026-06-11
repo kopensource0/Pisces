@@ -3,7 +3,7 @@ import { PROVIDER_DEFAULTS } from '../types/llm';
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
   onError: (error: string) => void;
 }
 
@@ -85,7 +85,7 @@ async function streamOpenAICompatible(
     }
   });
 
-  callbacks.onDone();
+  await callbacks.onDone();
 }
 
 // ===== Anthropic Messages API =====
@@ -137,7 +137,7 @@ async function streamAnthropic(
     }
   });
 
-  callbacks.onDone();
+  await callbacks.onDone();
 }
 
 // ===== Google Gemini API =====
@@ -187,7 +187,7 @@ async function streamGoogle(
     }
   });
 
-  callbacks.onDone();
+  await callbacks.onDone();
 }
 
 // ===== SSE stream parser =====

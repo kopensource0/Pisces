@@ -2,6 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import type { ChatMessage } from '../types/llm';
 import type { LLMProvider, LLMProviderConfig } from '../types/llm';
 import { streamChat, extractPDFText } from '../services/llmApi';
+import { parseToolCalls, stripToolCalls, executeToolCall, TOOL_DEFINITIONS } from '../services/toolExecutor';
+import type { ToolExecutorContext, ToolCall } from '../services/toolExecutor';
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -11,12 +13,37 @@ export function useLLMChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [toolResults, setToolResults] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const toolCtxRef = useRef<ToolExecutorContext | null>(null);
+
+  const setToolContext = useCallback((ctx: ToolExecutorContext | null) => {
+    toolCtxRef.current = ctx;
+  }, []);
 
   const addMessage = useCallback((role: 'user' | 'assistant', content: string): ChatMessage => {
     const msg: ChatMessage = { id: genId(), role, content, timestamp: Date.now() };
     setMessages(prev => [...prev, msg]);
     return msg;
+  }, []);
+
+  // Execute tool calls found in the response
+  const runToolCalls = useCallback(async (toolCalls: ToolCall[]) => {
+    const ctx = toolCtxRef.current;
+    if (!ctx || toolCalls.length === 0) return [];
+
+    const results: string[] = [];
+    for (const call of toolCalls) {
+      const result = await executeToolCall(call, ctx);
+      const icon = result.success ? '✅' : '❌';
+      results.push(`${icon} **${call.name}**: ${result.message}`);
+
+      // Navigate to the page if applicable
+      if (result.page && ctx.goToPage) {
+        ctx.goToPage(result.page);
+      }
+    }
+    return results;
   }, []);
 
   const sendQuestion = useCallback(async (
@@ -29,6 +56,7 @@ export function useLLMChat() {
 
     addMessage('user', question);
     setIsStreaming(true);
+    setToolResults([]);
 
     const assistantMsg: ChatMessage = { id: genId(), role: 'assistant', content: '', timestamp: Date.now() };
     setMessages(prev => [...prev, assistantMsg]);
@@ -46,8 +74,8 @@ export function useLLMChat() {
     }
 
     const systemPrompt = context
-      ? `You are an AI reading assistant. Below is the extracted text from a PDF document. Use this context to answer the user's questions accurately and helpfully.\n\nPDF Content:\n${context}`
-      : `You are a helpful AI assistant for UReader, a PDF reading application.`;
+      ? `You are an AI reading assistant for UReader, a PDF reading application. You can answer questions about the document AND use tools to highlight, annotate, bookmark, and navigate the PDF.\n\n${TOOL_DEFINITIONS}\n\nPDF Content:\n${context}`
+      : `You are a helpful AI assistant for UReader, a PDF reading application.\n\n${TOOL_DEFINITIONS}`;
 
     const apiMessages = [
       { role: 'system', content: systemPrompt },
@@ -64,7 +92,45 @@ export function useLLMChat() {
         fullResponse += token;
         setMessages(prev => prev.map(m => m.id === assistantMsg.id ? { ...m, content: fullResponse } : m));
       },
-      onDone: () => {
+      onDone: async () => {
+        try {
+          // Parse and execute tool calls from the response
+          console.log('[Chat] Streaming done, parsing tool calls...');
+          const toolCalls = parseToolCalls(fullResponse);
+          console.log('[Chat] Found', toolCalls.length, 'tool calls');
+
+          if (toolCalls.length > 0) {
+            const results = await runToolCalls(toolCalls);
+            setToolResults(results);
+
+            // Clean the response for display (remove TOOL_CALL blocks)
+            const cleanResponse = stripToolCalls(fullResponse);
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMsg.id ? { ...m, content: cleanResponse || 'Done! I\'ve applied the changes to your PDF.' } : m
+            ));
+
+            // Add tool results as a follow-up message
+            if (results.length > 0) {
+              const resultMsg: ChatMessage = {
+                id: genId(),
+                role: 'assistant',
+                content: '🔧 **Tool Results:**\n' + results.join('\n'),
+                timestamp: Date.now(),
+              };
+              setMessages(prev => [...prev, resultMsg]);
+            }
+          }
+        } catch (err) {
+          console.error('[Chat] Tool execution error:', err);
+          const errMsg: ChatMessage = {
+            id: genId(),
+            role: 'assistant',
+            content: `⚠️ Tool execution error: ${err instanceof Error ? err.message : String(err)}`,
+            timestamp: Date.now(),
+          };
+          setMessages(prev => [...prev, errMsg]);
+        }
+
         setIsStreaming(false);
         abortRef.current = null;
       },
@@ -77,7 +143,7 @@ export function useLLMChat() {
         abortRef.current = null;
       },
     }, controller.signal);
-  }, [messages, isStreaming, addMessage]);
+  }, [messages, isStreaming, addMessage, runToolCalls]);
 
   const summarizeFullText = useCallback(async (
     provider: LLMProvider,
@@ -140,6 +206,7 @@ export function useLLMChat() {
     if (abortRef.current) abortRef.current.abort();
     setMessages([]);
     setIsStreaming(false);
+    setToolResults([]);
   }, []);
 
   const stopStreaming = useCallback(() => {
@@ -151,9 +218,11 @@ export function useLLMChat() {
     messages,
     isStreaming,
     extracting,
+    toolResults,
     sendQuestion,
     summarizeFullText,
     clearChat,
     stopStreaming,
+    setToolContext,
   };
 }
