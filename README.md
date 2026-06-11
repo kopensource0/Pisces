@@ -1,4 +1,4 @@
-# UReader
+# Pisces
 
 A lightweight, feature-rich AI-powered PDF reader for Windows.
 
@@ -16,12 +16,14 @@ UReader is a desktop application built with Electron + React that combines tradi
 ### Annotations
 - **Highlight** — select text and highlight with multiple color options (Okular-style)
 - **Underline** — underline selected text with color choices
+- **Comments** — click any highlight or underline to add/edit inline comments
 - **Text boxes** — draw text boxes directly on the PDF pages
   - Drag to create with custom size
   - Move and resize with 8-directional handles
   - Adjustable font size (Ctrl+scroll or +/− controls)
   - Transparent background — text floats cleanly on the PDF
 - **Bookmarks** — mark any page with a custom name, rename inline, navigate from sidebar
+- **Cross-reader compatible** — annotations are embedded directly into the PDF file via `pdf-lib`, so highlights, underlines, comments, text boxes, and bookmarks are visible in other PDF readers (Edge, Adobe Acrobat, Foxit, etc.)
 
 ### Notes
 - **Markdown notes panel** — write notes in Markdown alongside your PDF
@@ -30,8 +32,10 @@ UReader is a desktop application built with Electron + React that combines tradi
 ### AI Integration
 - **AI document reading** — let AI analyze and summarize the full PDF content
 - **AI Q&A chat** — ask questions about the document and get contextual answers
-- **Multiple AI providers** — supports OpenAI, Ollama, and custom OpenAI-compatible APIs
+- **AI tool calling** — tell the AI to highlight text, add comments, create bookmarks, or jump to pages directly in the PDF (e.g., "highlight the key points in section 3")
+- **Multiple AI providers** — supports OpenAI, Anthropic, Google Gemini, Ollama, and custom OpenAI-compatible APIs
 - **Configurable models** — set API key, model name, and base URL per provider
+- **Streaming responses** — real-time token-by-token streaming with graceful abort
 
 ### Keyboard Shortcuts
 | Shortcut | Action |
@@ -53,6 +57,7 @@ UReader is a desktop application built with Electron + React that combines tradi
 - **React 19** + **TypeScript** — UI layer
 - **Vite** — build tooling
 - **pdfjs-dist** — PDF rendering and text extraction
+- **pdf-lib** — PDF modification and annotation embedding
 - **electron-builder** — Windows installer (NSIS)
 
 ## Getting Started
